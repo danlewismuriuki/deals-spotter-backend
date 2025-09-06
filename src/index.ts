@@ -1,12 +1,11 @@
 import express from "express";
+import dealsRouter from "../src/routes/deals.js";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
-app.get("/", (req, res) => {
-  res.send("Deals Spotter API is running!");
-});
+app.use("/deals", dealsRouter);
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
