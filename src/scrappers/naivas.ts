@@ -1,716 +1,1424 @@
-// // src/scrapers/naivas.ts
-// import axios, { AxiosError } from "axios";
-// import * as cheerio from "cheerio";
-// import type { Deal } from "../models/Deal.js";
+// import puppeteer from 'puppeteer';
+// import type { Deal } from '../models/Deal.js';
 
-// interface ScrapedDeal {
-//   name: string;
-//   currentPrice: number;
-//   originalPrice?: number;
-//   discount?: number;
-//   discountType: 'percentage' | 'fixed_amount';
-//   image?: string;
-//   link?: string;
-//   category?: string;
-// }
-
-// export class NaivasScraper {
-//   private baseUrl = "https://naivas.online";
-  
-//   private userAgents: string[] = [
-//     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-//     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-//     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-//     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0"
-//   ];
-
-//   private getRandomUserAgent(): string {
-//     const index = Math.floor(Math.random() * this.userAgents.length);
-//     return this.userAgents[index]!; // Non-null assertion operator
-//   }
-
-//   private getEnhancedHeaders() {
-//     return {
-//       'User-Agent': this.getRandomUserAgent(),
-//       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-//       'Accept-Language': 'en-US,en;q=0.9',
-//       'Accept-Encoding': 'gzip, deflate, br',
-//       'DNT': '1',
-//       'Connection': 'keep-alive',
-//       'Upgrade-Insecure-Requests': '1',
-//       'Sec-Fetch-Dest': 'document',
-//       'Sec-Fetch-Mode': 'navigate',
-//       'Sec-Fetch-Site': 'none',
-//       'Sec-Fetch-User': '?1',
-//       'Cache-Control': 'max-age=0',
-//       'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-//       'sec-ch-ua-mobile': '?0',
-//       'sec-ch-ua-platform': '"Windows"'
-//     };
-//   }
-
-//   async scrapeDeals(): Promise<Deal[]> {
-//     console.log("🛒 Starting Naivas scraping...");
+// export class AdvancedNaivasScraper {
+//     private readonly BASE_URL = 'https://naivas.online';
     
-//     try {
-//       // Try multiple approaches
-//       const approaches = [
-//         () => this.scrapeWithDelay(),
-//         () => this.scrapeMainPageFirst(),
-//         () => this.scrapeWithDifferentEndpoints()
-//       ];
+//     // Try different approaches - direct product pages instead of deal categories
+//     private readonly PRODUCT_CATEGORIES = [
+//         '/food-cupboard',
+//         '/fresh-produce', 
+//         '/electronics',
+//         '/beauty-cosmetics',
+//         '/beverages',
+//         '/cleaning-household',
+//         '/snacks',
+//         '/baby-kids',
+//         '/stationery',
+//         '/liquor'
+//     ];
 
-//       for (const approach of approaches) {
+//     // Fallback: try main category pages if deals are blocked
+//     private readonly DEAL_CATEGORIES = [
+//         '/food-cupboard-deals',
+//         '/fresh-deals', 
+//         '/great-value',
+//         '/electronics-deals',
+//         '/beauty-cosmetics-deals',
+//         '/beverage-deals',
+//         '/cleaning-deals',
+//         '/snacks-deals',
+//         '/baby-kids-deals',
+//         '/stationery-deals',
+//         '/liqour-deals'
+//     ];
+
+//     private getRandomUserAgent(): string {
+//         const userAgents = [
+//             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+//             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+//             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+//             'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0'
+//         ];
+//         return userAgents[Math.floor(Math.random() * userAgents.length)]!;
+//     }
+
+//     private generateId(name: string, store: string): string {
+//         const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+//         const hash = cleanName.split('').reduce((a, b) => {
+//             a = ((a << 5) - a) + b.charCodeAt(0);
+//             return a & a;
+//         }, 0);
+//         return `${store}-${Math.abs(hash)}`;
+//     }
+
+//     private getDefaultExpiry(): Date {
+//         const expiry = new Date();
+//         expiry.setDate(expiry.getDate() + 30);
+//         return expiry;
+//     }
+
+//     private async setupBrowser() {
+//         console.log("🚀 Launching Puppeteer browser...");
+        
+//         const browser = await puppeteer.launch({
+//             headless: true,
+//             args: [
+//                 '--no-sandbox',
+//                 '--disable-setuid-sandbox',
+//                 '--disable-dev-shm-usage',
+//                 '--disable-accelerated-2d-canvas',
+//                 '--no-first-run',
+//                 '--no-zygote',
+//                 '--single-process',
+//                 '--disable-gpu',
+//                 '--disable-web-security',
+//                 '--disable-features=VizDisplayCompositor',
+//                 '--disable-blink-features=AutomationControlled',
+//                 '--disable-extensions',
+//                 '--no-default-browser-check',
+//                 // Additional stealth options
+//                 '--disable-plugins-discovery',
+//                 '--disable-preconnect',
+//                 '--disable-background-timer-throttling',
+//                 '--disable-backgrounding-occluded-windows',
+//                 '--disable-renderer-backgrounding'
+//             ]
+//         });
+
+//         const page = await browser.newPage();
+        
+//         // Enhanced stealth setup
+//         await page.setViewport({ 
+//             width: 1366 + Math.floor(Math.random() * 100), 
+//             height: 768 + Math.floor(Math.random() * 100) 
+//         });
+//         await page.setUserAgent(this.getRandomUserAgent());
+        
+//         // Block only images to speed up, but allow CSS for proper rendering
+//         await page.setRequestInterception(true);
+//         page.on('request', (req) => {
+//             const resourceType = req.resourceType();
+//             if (['image', 'media'].includes(resourceType)) {
+//                 req.abort();
+//             } else {
+//                 req.continue();
+//             }
+//         });
+
+//         // Enhanced human-like headers
+//         await page.setExtraHTTPHeaders({
+//             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+//             'Accept-Language': 'en-US,en;q=0.9',
+//             'Accept-Encoding': 'gzip, deflate, br',
+//             'DNT': '1',
+//             'Connection': 'keep-alive',
+//             'Upgrade-Insecure-Requests': '1',
+//             'Sec-Fetch-Dest': 'document',
+//             'Sec-Fetch-Mode': 'navigate',
+//             'Sec-Fetch-Site': 'none',
+//             'Sec-Fetch-User': '?1',
+//             'Cache-Control': 'max-age=0'
+//         });
+
+//         // Remove webdriver property
+//         await page.evaluateOnNewDocument(() => {
+//             Object.defineProperty(navigator, 'webdriver', {
+//                 get: () => undefined,
+//             });
+//         });
+
+//         return { browser, page };
+//     }
+
+//     private async humanLikeDelay(min = 1000, max = 3000) {
+//         const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+//         await new Promise(resolve => setTimeout(resolve, delay));
+//     }
+
+//     private async scrapeProductsFromPage(page: any, category: string): Promise<Deal[]> {
+//         console.log(`📦 Extracting products from ${category}...`);
+        
+//         await this.humanLikeDelay(2000, 4000);
+        
+//         // Wait for product grid to load with multiple selectors
 //         try {
-//           const deals = await approach();
-//           if (deals.length > 0) {
-//             console.log(`✅ Successfully scraped ${deals.length} deals from Naivas`);
-//             return deals;
-//           }
+//             await Promise.race([
+//                 page.waitForSelector('.grid', { timeout: 15000 }),
+//                 page.waitForSelector('[class*="product"]', { timeout: 15000 }),
+//                 page.waitForSelector('[wire\\:id]', { timeout: 15000 })
+//             ]);
 //         } catch (error) {
-//           console.log(`❌ Approach failed, trying next...`);
-//           continue;
+//             console.log(`⚠️ Product grid not found on ${category}, continuing anyway...`);
 //         }
-//       }
 
-//       console.log("⚠️ All approaches failed, returning empty array");
-//       return [];
-
-//     } catch (error) {
-//       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-//       console.error("❌ Naivas scraping failed completely:", errorMessage);
-//       return [];
-//     }
-//   }
-
-//   private async scrapeWithDelay(): Promise<Deal[]> {
-//     console.log("🔄 Trying approach 1: With delay and enhanced headers");
-    
-//     // First, visit main page to establish session
-//     try {
-//       await axios.get(this.baseUrl, {
-//         headers: this.getEnhancedHeaders(),
-//         timeout: 15000,
-//         maxRedirects: 5
-//       });
-      
-//       console.log("✅ Main page visited successfully");
-      
-//       // Wait a bit like a human would
-//       await this.sleep(2000);
-      
-//     } catch (error) {
-//       console.log("⚠️ Main page visit failed, continuing anyway");
-//     }
-
-//     // Now try to get promotions
-//     const promotionUrls = [
-//       `${this.baseUrl}/promos`,
-//       `${this.baseUrl}/promotions`,
-//       `${this.baseUrl}/offers`,
-//       `${this.baseUrl}/deals`,
-//       `${this.baseUrl}/specials`,
-//       `${this.baseUrl}/category/promotions`
-//     ];
-
-//     for (const url of promotionUrls) {
-//       try {
-//         console.log(`🔍 Trying URL: ${url}`);
-        
-//         const response = await axios.get(url, {
-//           headers: this.getEnhancedHeaders(),
-//           timeout: 15000,
-//           maxRedirects: 5,
-//           validateStatus: (status) => status < 400 // Accept redirects
+//         // Simulate human scrolling
+//         await page.evaluate(() => {
+//             window.scrollTo(0, document.body.scrollHeight / 4);
 //         });
+//         await this.humanLikeDelay(500, 1000);
         
-//         if (response.status === 200 && response.data) {
-//           console.log(`✅ Success! Got ${response.data.length} characters from ${url}`);
-//           return await this.parseDealsFromHTML(response.data, url);
-//         }
-        
-//       } catch (error) {
-//         const statusCode = this.getErrorStatus(error);
-//         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-//         console.log(`❌ Failed ${url}: ${statusCode || errorMessage}`);
-//         await this.sleep(1000); // Wait between attempts
-//       }
-//     }
-
-//     throw new Error("No working promotion URLs found");
-//   }
-
-//   private async scrapeMainPageFirst(): Promise<Deal[]> {
-//     console.log("🔄 Trying approach 2: Main page scraping");
-    
-//     try {
-//       const response = await axios.get(this.baseUrl, {
-//         headers: this.getEnhancedHeaders(),
-//         timeout: 15000
-//       });
-
-//       if (response.status === 200) {
-//         console.log(`✅ Main page loaded (${response.data.length} chars)`);
-//         return await this.parseDealsFromHTML(response.data, this.baseUrl);
-//       }
-
-//       throw new Error(`Main page returned status: ${response.status}`);
-
-//     } catch (error) {
-//       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-//       throw new Error(`Main page scraping failed: ${errorMessage}`);
-//     }
-//   }
-
-//   private async scrapeWithDifferentEndpoints(): Promise<Deal[]> {
-//     console.log("🔄 Trying approach 3: API endpoints");
-    
-//     const apiEndpoints = [
-//       `${this.baseUrl}/api/promotions`,
-//       `${this.baseUrl}/wp-json/wp/v2/products`,
-//       `${this.baseUrl}/products.json`,
-//       `${this.baseUrl}/feed/promotions`
-//     ];
-
-//     for (const endpoint of apiEndpoints) {
-//       try {
-//         console.log(`🔍 Trying API: ${endpoint}`);
-        
-//         const response = await axios.get(endpoint, {
-//           headers: {
-//             ...this.getEnhancedHeaders(),
-//             'Accept': 'application/json, text/plain, */*'
-//           },
-//           timeout: 10000
+//         await page.evaluate(() => {
+//             window.scrollTo(0, document.body.scrollHeight / 2);
 //         });
-        
-//         if (response.status === 200 && response.data) {
-//           console.log(`✅ API success: ${endpoint}`);
-//           return await this.parseAPIResponse(response.data);
+//         await this.humanLikeDelay(500, 1000);
+
+//         const products = await page.evaluate((categoryName: string) => {
+//             // Try multiple selectors for product cards
+//             const selectors = [
+//                 '.border.border-naivas-bg.p-3.rounded-xl',
+//                 '[wire\\:id*="product-card"]',
+//                 '.product-card',
+//                 '[class*="product-item"]',
+//                 '.grid > div',
+//                 '[data-product]'
+//             ];
+            
+//             let productCards: NodeListOf<Element> | null = null;
+//             for (const selector of selectors) {
+//                 productCards = document.querySelectorAll(selector);
+//                 if (productCards.length > 0) {
+//                     console.log(`Found ${productCards.length} products using selector: ${selector}`);
+//                     break;
+//                 }
+//             }
+
+//             if (!productCards || productCards.length === 0) {
+//                 console.log('No product cards found with any selector');
+//                 return [];
+//             }
+
+//             const productsData: any[] = [];
+
+//             productCards.forEach((card, index) => {
+//                 if (index >= 100) return; // Increased limit
+                
+//                 try {
+//                     // Multiple selectors for product name
+//                     const nameSelectors = [
+//                         '.text-naivas-gray-dark.text-xs.lg\\:text-sm .line-clamp-2',
+//                         '.text-naivas-gray-dark a',
+//                         'h3',
+//                         '.product-name',
+//                         '[title]',
+//                         'a[href*="/product"]',
+//                         '.product-title'
+//                     ];
+                    
+//                     let productName = '';
+//                     for (const selector of nameSelectors) {
+//                         const element = card.querySelector(selector);
+//                         if (element) {
+//                             productName = element.textContent?.trim() || element.getAttribute('title') || '';
+//                             if (productName) break;
+//                         }
+//                     }
+
+//                     // Multiple selectors for product link
+//                     const linkSelectors = [
+//                         'a[href*="naivas.online/"]',
+//                         'a[href^="/"]',
+//                         'a[href*="/product"]',
+//                         'a'
+//                     ];
+                    
+//                     let productUrl = '';
+//                     for (const selector of linkSelectors) {
+//                         const element = card.querySelector(selector);
+//                         if (element) {
+//                             productUrl = element.getAttribute('href') || '';
+//                             if (productUrl) {
+//                                 if (!productUrl.startsWith('http')) {
+//                                     productUrl = 'https://naivas.online' + productUrl;
+//                                 }
+//                                 break;
+//                             }
+//                         }
+//                     }
+
+//                     // Multiple selectors for current price
+//                     const priceSelectors = [
+//                         '.font-bold.text-naivas-green',
+//                         '.product-price .font-bold',
+//                         '.text-naivas-green',
+//                         '.price',
+//                         '[class*="price"]'
+//                     ];
+                    
+//                     let currentPrice = 0;
+//                     for (const selector of priceSelectors) {
+//                         const element = card.querySelector(selector);
+//                         if (element) {
+//                             const priceText = element.textContent?.trim() || '';
+//                             const price = parseFloat(priceText.replace(/[^\d.]/g, ''));
+//                             if (price > 0) {
+//                                 currentPrice = price;
+//                                 break;
+//                             }
+//                         }
+//                     }
+
+//                     // Multiple selectors for original price
+//                     const originalPriceSelectors = [
+//                         '.text-red-600.text-xs.line-through',
+//                         '.line-through',
+//                         '[class*="strike"]',
+//                         '[class*="original"]'
+//                     ];
+                    
+//                     let originalPrice = currentPrice;
+//                     for (const selector of originalPriceSelectors) {
+//                         const element = card.querySelector(selector);
+//                         if (element) {
+//                             const priceText = element.textContent?.trim() || '';
+//                             const price = parseFloat(priceText.replace(/[^\d.]/g, ''));
+//                             if (price > 0) {
+//                                 originalPrice = price;
+//                                 break;
+//                             }
+//                         }
+//                     }
+
+//                     // Extract discount percentage
+//                     const discountSelectors = [
+//                         '.bg-naivas-orange\\/10.text-naivas-orange',
+//                         '.pill',
+//                         '[class*="off"]',
+//                         '[class*="discount"]',
+//                         '[class*="save"]'
+//                     ];
+                    
+//                     let discountPercent = 0;
+//                     for (const selector of discountSelectors) {
+//                         const element = card.querySelector(selector);
+//                         if (element) {
+//                             const discountText = element.textContent?.trim() || '';
+//                             if (discountText) {
+//                                 const percentMatch = discountText.match(/(\d+)%/);
+//                                 if (percentMatch && percentMatch[1]) {
+//                                     discountPercent = parseInt(percentMatch[1]);
+//                                     break;
+//                                 }
+//                             }
+//                         }
+//                     }
+                    
+//                     // Calculate discount if not found
+//                     if (discountPercent === 0 && originalPrice > currentPrice && originalPrice > 0) {
+//                         discountPercent = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
+//                     }
+
+//                     // Extract product image
+//                     const imageSelectors = [
+//                         'img[src*="cloudfront"]',
+//                         'img[src*="naivas"]',
+//                         'img'
+//                     ];
+                    
+//                     let imageUrl = '';
+//                     for (const selector of imageSelectors) {
+//                         const element = card.querySelector(selector);
+//                         if (element) {
+//                             imageUrl = element.getAttribute('src') || '';
+//                             if (imageUrl) break;
+//                         }
+//                     }
+
+//                     // Only add products with valid data
+//                     if (productName && currentPrice > 0) {
+//                         productsData.push({
+//                             name: productName,
+//                             url: productUrl,
+//                             currentPrice,
+//                             originalPrice,
+//                             discount: discountPercent,
+//                             image: imageUrl,
+//                             category: categoryName,
+//                             hasDiscount: originalPrice > currentPrice
+//                         });
+//                     }
+//                 } catch (error) {
+//                     console.log(`Error extracting product ${index}:`, error);
+//                 }
+//             });
+
+//             return productsData;
+//         }, category);
+
+//         console.log(`✅ Found ${products.length} products in ${category}`);
+//         return this.formatDeals(products);
+//     }
+
+//     private formatDeals(products: any[]): Deal[] {
+//         return products.map(product => ({
+//             id: this.generateId(product.name, 'naivas'),
+//             name: product.name,
+//             store: 'naivas' as any,
+//             currentPrice: product.currentPrice,
+//             originalPrice: product.originalPrice,
+//             discount: product.discount,
+//             discountType: 'percentage' as const,
+//             validFrom: new Date(),
+//             validUntil: this.getDefaultExpiry(),
+//             locations: ['nairobi'],
+//             category: product.category.replace('/', '').replace('-deals', '') || 'general',
+//             image: product.image,
+//             sourceUrl: product.url,
+//             scrapedAt: new Date(),
+//             isActive: true,
+//             dealTags: []
+//         }));
+//     }
+
+//     private async navigateWithRetry(page: any, url: string, maxRetries = 3): Promise<boolean> {
+//         for (let attempt = 1; attempt <= maxRetries; attempt++) {
+//             try {
+//                 console.log(`🔄 Attempt ${attempt} - Loading ${url}`);
+                
+//                 // Add referrer header to look more natural
+//                 const response = await page.goto(url, { 
+//                     waitUntil: ['networkidle0', 'domcontentloaded'],
+//                     timeout: 45000,
+//                     referer: this.BASE_URL
+//                 });
+
+//                 if (response?.status() === 200) {
+//                     await this.humanLikeDelay(3000, 5000);
+//                     return true;
+//                 } else if (response?.status() === 403) {
+//                     console.log(`🚫 403 Forbidden for ${url}`);
+//                     return false;
+//                 }
+                
+//                 console.log(`❌ Status ${response?.status()} for ${url}`);
+//             } catch (error: unknown) {
+//                 const errorMessage = error instanceof Error ? error.message : String(error);
+//                 console.log(`❌ Attempt ${attempt} failed for ${url}: ${errorMessage}`);
+//                 if (attempt < maxRetries) {
+//                     const delay = 5000 * attempt + Math.random() * 2000;
+//                     await new Promise(resolve => setTimeout(resolve, delay));
+//                 }
+//             }
 //         }
+//         return false;
+//     }
+
+//     private async scrapeCategory(page: any, category: string): Promise<Deal[]> {
+//         const fullUrl = `${this.BASE_URL}${category}`;
         
-//       } catch (error) {
-//         const statusCode = this.getErrorStatus(error);
-//         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-//         console.log(`❌ API failed ${endpoint}: ${statusCode || errorMessage}`);
-//       }
-//     }
-
-//     throw new Error("No working API endpoints found");
-//   }
-
-//   private getErrorStatus(error: unknown): number | null {
-//     if (axios.isAxiosError(error) && error.response) {
-//       return error.response.status;
-//     }
-//     return null;
-//   }
-
-//   private async parseDealsFromHTML(html: string, sourceUrl: string): Promise<Deal[]> {
-//     console.log("📊 Parsing HTML for deals...");
-//     const $ = cheerio.load(html);
-//     const deals: Deal[] = [];
-
-//     // Debug info
-//     console.log(`- Page title: ${$('title').text()}`);
-//     console.log(`- Page contains 'promo': ${html.toLowerCase().includes('promo')}`);
-//     console.log(`- Page contains 'offer': ${html.toLowerCase().includes('offer')}`);
-//     console.log(`- Page contains 'deal': ${html.toLowerCase().includes('deal')}`);
-//     console.log(`- Page contains 'KSh': ${html.includes('KSh')}`);
-
-//     // Try multiple selectors for products
-//     const productSelectors = [
-//       '.product-item', '.product-card', '.product', '.item',
-//       '.woocommerce-loop-product__title', '.product-title',
-//       '[class*="product"]', '[class*="item"]', '[class*="deal"]',
-//       '.promo-item', '.offer-item', '.special-item'
-//     ];
-
-//     let foundProducts = false;
-
-//     for (const selector of productSelectors) {
-//       const elements = $(selector);
-//       if (elements.length > 0) {
-//         console.log(`🎯 Found ${elements.length} elements with selector: ${selector}`);
-//         foundProducts = true;
-
-//         elements.each((index, element) => {
-//           const deal = this.extractDealFromElement($, element, sourceUrl);
-//           if (deal && this.isValidDeal(deal)) {
-//             deals.push(deal);
-//           }
-//         });
-
-//         if (deals.length > 0) break; // Stop at first working selector
-//       }
-//     }
-
-//     if (!foundProducts) {
-//       console.log("🔍 No standard product selectors worked, trying text analysis...");
-//       return this.fallbackTextAnalysis($, sourceUrl);
-//     }
-
-//     return deals;
-//   }
-
-//   private async parseAPIResponse(data: any): Promise<Deal[]> {
-//     console.log("📊 Parsing API response...");
-//     const deals: Deal[] = [];
-
-//     try {
-//       // Handle different API response formats
-//       let products = [];
-
-//       if (Array.isArray(data)) {
-//         products = data;
-//       } else if (data.products) {
-//         products = data.products;
-//       } else if (data.data) {
-//         products = data.data;
-//       } else if (data.items) {
-//         products = data.items;
-//       }
-
-//       for (const item of products.slice(0, 20)) { // Limit to first 20
-//         const deal = this.parseAPIProduct(item);
-//         if (deal && this.isValidDeal(deal)) {
-//           deals.push(deal);
+//         const success = await this.navigateWithRetry(page, fullUrl);
+//         if (!success) {
+//             console.log(`💥 Failed to load ${category} after all retries`);
+//             return [];
 //         }
-//       }
 
-//     } catch (error) {
-//       console.error("API parsing error:", error);
+//         // Check for access denied or bot detection
+//         const pageContent = await page.content();
+//         if (pageContent.includes('403') || pageContent.includes('Access Denied') || 
+//             pageContent.includes('blocked') || pageContent.includes('Forbidden')) {
+//             console.log(`🚫 Access blocked for ${category}`);
+//             return [];
+//         }
+
+//         return await this.scrapeProductsFromPage(page, category);
 //     }
 
-//     return deals;
-//   }
+//     // Try scraping the main homepage for any products
+//     private async scrapeHomepage(page: any): Promise<Deal[]> {
+//         console.log("🏠 Trying homepage for products...");
+        
+//         const success = await this.navigateWithRetry(page, this.BASE_URL);
+//         if (!success) {
+//             return [];
+//         }
 
-//   private parseAPIProduct(item: any): Deal | null {
-//     try {
-//       const name = item.name || item.title || item.product_name;
-//       if (!name) return null;
-
-//       const currentPrice = this.parsePrice(item.price || item.current_price || item.sale_price);
-//       if (!currentPrice) return null;
-
-//       const originalPrice = this.parsePrice(item.regular_price || item.original_price);
-      
-//       let discount = 0;
-//       if (originalPrice && currentPrice < originalPrice) {
-//         discount = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
-//       }
-
-//       return {
-//         id: this.generateId(name, 'naivas'),
-//         name: name.trim(),
-//         store: 'naivas' as any,
-//         currentPrice,
-//         originalPrice: originalPrice || currentPrice, // Ensure it's never undefined
-//         discount,
-//         discountType: 'percentage' as const,
-//         validFrom: new Date(),
-//         validUntil: this.getDefaultExpiry(),
-//         locations: ['nairobi'],
-//         category: item.category || item.product_category || 'general',
-//         image: item.image || item.featured_image || undefined,
-//         sourceUrl: item.url || item.permalink,
-//         scrapedAt: new Date(),
-//         isActive: true
-//       };
-
-//     } catch (error) {
-//       console.error("Error parsing API product:", error);
-//       return null;
-//     }
-//   }
-
-//   private extractDealFromElement($: any, element: any, sourceUrl: string): Deal | null {
-//     try {
-//       const $el = $(element);
-
-//       // Extract name
-//       const name = this.extractText($el, [
-//         '.product-title', '.product-name', '.title', '.name',
-//         'h1', 'h2', 'h3', 'h4', 'h5', 'a',
-//         '[class*="title"]', '[class*="name"]'
-//       ]);
-
-//       if (!name || name.length < 3) return null;
-
-//       // Extract prices
-//       const priceData = this.extractPrices($el);
-//       if (!priceData.currentPrice) return null;
-
-//       return {
-//         id: this.generateId(name, 'naivas'),
-//         name: name.trim(),
-//         store: 'naivas' as any,
-//         currentPrice: priceData.currentPrice,
-//         originalPrice: priceData.originalPrice || priceData.currentPrice, // Ensure it's never undefined
-//         discount: priceData.discount || 0, // Ensure it's never undefined
-//         discountType: priceData.discountType,
-//         validFrom: new Date(),
-//         validUntil: this.getDefaultExpiry(),
-//         locations: ['nairobi'],
-//         category: this.extractCategory($el),
-//         image: this.extractImage($el),
-//         sourceUrl: this.extractLink($el) || sourceUrl,
-//         scrapedAt: new Date(),
-//         isActive: true
-//       };
-
-//     } catch (error) {
-//       console.error("Error extracting deal:", error);
-//       return null;
-//     }
-//   }
-
-//   private fallbackTextAnalysis($: any, sourceUrl: string): Deal[] {
-//     console.log("🔍 Performing fallback text analysis...");
-//     const deals: Deal[] = [];
-
-//     // Look for price patterns in the text
-//     const priceRegex = /KSh?\s*(\d{1,3}(?:,\d{3})*|\d+)/gi;
-//     const textContent = $('body').text();
-//     const matches = textContent.match(priceRegex);
-
-//     if (matches && matches.length > 0) {
-//       console.log(`💰 Found ${matches.length} price mentions`);
-//       console.log(`Sample prices: ${matches.slice(0, 5).join(', ')}`);
+//         return await this.scrapeProductsFromPage(page, 'homepage');
 //     }
 
-//     // This is a basic implementation - you'd want to enhance this
-//     // to actually extract meaningful product information
-    
-//     return deals;
-//   }
+//     public async scrapeDeals(): Promise<Deal[]> {
+//         const { browser, page } = await this.setupBrowser();
+//         const allDeals: Deal[] = [];
 
-//   // Helper methods
-//   private extractText($el: any, selectors: string[]): string | null {
-//     for (const selector of selectors) {
-//       const text = $el.find(selector).first().text().trim();
-//       if (text && text.length > 0) return text;
-//     }
-//     return $el.text().trim() || null;
-//   }
+//         try {
+//             // First, test homepage accessibility
+//             console.log("🏠 Testing homepage accessibility...");
+//             const success = await this.navigateWithRetry(page, this.BASE_URL);
+//             if (!success) {
+//                 throw new Error("Cannot access Naivas homepage - possible IP block or site down");
+//             }
 
-//   private extractPrices($el: any) {
-//     const priceSelectors = [
-//       '.price', '.current-price', '.sale-price', '.amount',
-//       '[class*="price"]', '[data-price]'
-//     ];
-    
-//     const originalPriceSelectors = [
-//       '.original-price', '.old-price', '.was-price', '.regular-price',
-//       '[class*="original"]', '[class*="old"]', '[class*="regular"]'
-//     ];
+//             console.log("✅ Homepage accessible, proceeding with category scraping...");
 
-//     let currentPrice = 0;
-//     let originalPrice: number | undefined;
+//             // Try homepage first for any products
+//             const homepageDeals = await this.scrapeHomepage(page);
+//             if (homepageDeals.length > 0) {
+//                 allDeals.push(...homepageDeals);
+//                 console.log(`📦 Found ${homepageDeals.length} deals on homepage`);
+//             }
 
-//     // Extract current price
-//     for (const selector of priceSelectors) {
-//       const priceText = $el.find(selector).first().text();
-//       const price = this.parsePrice(priceText);
-//       if (price > 0) {
-//         currentPrice = price;
-//         break;
-//       }
-//     }
+//             // Try deal categories first
+//             console.log("🔍 Trying deal categories...");
+//             let successfulCategories = 0;
+            
+//             for (const category of this.DEAL_CATEGORIES.slice(0, 3)) { // Try first 3
+//                 try {
+//                     const categoryDeals = await this.scrapeCategory(page, category);
+//                     if (categoryDeals.length > 0) {
+//                         allDeals.push(...categoryDeals);
+//                         successfulCategories++;
+//                     }
+                    
+//                     await this.humanLikeDelay(2000, 5000);
+//                 } catch (error: unknown) {
+//                     const errorMessage = error instanceof Error ? error.message : String(error);
+//                     console.log(`⚠️ Error scraping ${category}: ${errorMessage}`);
+//                     continue;
+//                 }
+//             }
 
-//     // Extract original price
-//     for (const selector of originalPriceSelectors) {
-//       const priceText = $el.find(selector).first().text();
-//       const price = this.parsePrice(priceText);
-//       if (price > 0 && price > currentPrice) {
-//         originalPrice = price;
-//         break;
-//       }
-//     }
+//             // If deal categories fail, try regular product categories
+//             if (successfulCategories === 0) {
+//                 console.log("🔄 Deal categories blocked, trying regular product pages...");
+                
+//                 for (const category of this.PRODUCT_CATEGORIES.slice(0, 2)) { // Try first 2
+//                     try {
+//                         const categoryDeals = await this.scrapeCategory(page, category);
+//                         allDeals.push(...categoryDeals);
+                        
+//                         await this.humanLikeDelay(3000, 6000);
+//                     } catch (error: unknown) {
+//                         const errorMessage = error instanceof Error ? error.message : String(error);
+//                         console.log(`⚠️ Error scraping ${category}: ${errorMessage}`);
+//                         continue;
+//                     }
+//                 }
+//             }
 
-//     // Calculate discount
-//     let discount: number | undefined;
-//     let discountType: 'percentage' | 'fixed_amount' = 'percentage';
+//             console.log(`🎉 Successfully scraped ${allDeals.length} deals from Naivas!`);
+            
+//             // Remove duplicates based on product name
+//             const uniqueDeals = allDeals.filter((deal, index, arr) => 
+//                 arr.findIndex(d => d.name === deal.name) === index
+//             );
 
-//     if (originalPrice && currentPrice && originalPrice > currentPrice) {
-//       discount = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
-//     }
+//             console.log(`🧹 Removed ${allDeals.length - uniqueDeals.length} duplicates`);
+//             return uniqueDeals;
 
-//     return { currentPrice, originalPrice, discount, discountType };
-//   }
-
-//   private parsePrice(priceText: string): number {
-//     if (!priceText) return 0;
-    
-//     const cleanText = priceText.replace(/[^\d.,]/g, '');
-//     const price = parseFloat(cleanText.replace(/,/g, ''));
-    
-//     return isNaN(price) ? 0 : price;
-//   }
-
-//   private extractImage($el: any): string | undefined {
-//     const img = $el.find('img').first();
-//     if (img.length) {
-//       let src = img.attr('src') || img.attr('data-src') || img.attr('data-lazy');
-//       if (src && !src.startsWith('http')) {
-//         src = `${this.baseUrl}${src}`;
-//       }
-//       return src;
-//     }
-//     return undefined;
-//   }
-
-//   private extractLink($el: any): string | undefined {
-//     const link = $el.find('a').first().attr('href') || $el.closest('a').attr('href');
-//     if (link && !link.startsWith('http')) {
-//       return `${this.baseUrl}${link}`;
-//     }
-//     return link;
-//   }
-
-//   private extractCategory($el: any): string {
-//     const categorySelectors = [
-//       '.category', '.product-category', '[class*="category"]', '.breadcrumb'
-//     ];
-
-//     for (const selector of categorySelectors) {
-//       const category = $el.find(selector).first().text().trim();
-//       if (category) return category;
+//         } catch (error) {
+//             console.error("💥 Scraping failed:", error);
+//             throw error;
+//         } finally {
+//             await browser.close();
+//             console.log("🔐 Browser closed");
+//         }
 //     }
 
-//     return 'general'; // Always return a string, never undefined
-//   }
+//     // Method to scrape specific product details from individual product pages
+//     public async scrapeProductDetails(productUrl: string): Promise<any> {
+//         const { browser, page } = await this.setupBrowser();
 
-//   private generateId(name: string, store: string): string {
-//     const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-//     return `${store}_${normalized}_${Date.now()}`;
-//   }
+//         try {
+//             const success = await this.navigateWithRetry(page, productUrl);
+//             if (!success) {
+//                 throw new Error(`Cannot access product page: ${productUrl}`);
+//             }
 
-//   private getDefaultExpiry(): Date {
-//     const expiry = new Date();
-//     expiry.setDate(expiry.getDate() + 7);
-//     return expiry;
-//   }
+//             const productDetails = await page.evaluate(() => {
+//                 // Extract detailed product information using the single product page structure
+//                 const name = document.querySelector('.text-xl')?.textContent?.trim();
+//                 const price = document.querySelector('.product-price .font-bold.text-naivas-green')?.textContent?.trim();
+//                 const stock = document.querySelector('.text-naivas-orange')?.textContent?.trim();
+//                 const description = document.querySelector('.short-description p')?.textContent?.trim();
+//                 const sku = document.querySelector('span:contains("SKU") + div span')?.textContent?.trim();
+//                 const brand = document.querySelector('a[href*="brand="]')?.textContent?.trim();
+                
+//                 // Extract all images
+//                 const images: string[] = [];
+//                 document.querySelectorAll('img[src*="cloudfront"]').forEach(img => {
+//                     const src = img.getAttribute('src');
+//                     if (src) images.push(src);
+//                 });
 
-//   private isValidDeal(deal: Deal): boolean {
-//     if (!deal.name || deal.name.length < 3) return false;
-//     if (!deal.currentPrice || deal.currentPrice <= 0) return false;
-//     if (deal.originalPrice && deal.originalPrice <= deal.currentPrice) return false;
-//     return true;
-//   }
+//                 return {
+//                     name,
+//                     price,
+//                     stock,
+//                     description,
+//                     sku,
+//                     brand,
+//                     images
+//                 };
+//             });
 
-//   private sleep(ms: number): Promise<void> {
-//     return new Promise(resolve => setTimeout(resolve, ms));
-//   }
+//             return productDetails;
+
+//         } finally {
+//             await browser.close();
+//         }
+//     }
 // }
 
-// // Export function for use in routes
-// export const scrapeNaivas = async (): Promise<Deal[]> => {
-//   const scraper = new NaivasScraper();
-//   return await scraper.scrapeDeals();
-// };
+// // Usage example:
+// export async function scrapeNaivasDeals(): Promise<Deal[]> {
+//     const scraper = new AdvancedNaivasScraper();
+//     return await scraper.scrapeDeals();
+// }
+
+// // Export for use in your existing system
+// export { AdvancedNaivasScraper as NaivasScraper };
 
 
-
-// src/scrappers/naivas-enhanced.js
 import puppeteer from 'puppeteer';
-import axios from 'axios';
-import { randomUserAgent, delay } from '../utils/scraper-utils.js';
+import type { Deal } from '../models/Deal.js';
 
-export async function scrapeNaivasEnhanced() {
-  console.log('🛒 Starting Enhanced Naivas scraping...');
-  
-  // Method 1: Try Puppeteer (real browser)
-  try {
-    console.log('🔄 Trying Method 1: Real browser with Puppeteer');
-    return await scrapeWithPuppeteer();
-  } catch (error) {
-    console.log('❌ Puppeteer method failed:', error.message);
-  }
-
-  // Method 2: Try with rotating user agents
-  try {
-    console.log('🔄 Trying Method 2: Rotating user agents');
-    return await scrapeWithRotatingAgents();
-  } catch (error) {
-    console.log('❌ Rotating agents method failed:', error.message);
-  }
-
-  // Method 3: Try mobile user agent
-  try {
-    console.log('🔄 Trying Method 3: Mobile user agent');
-    return await scrapeWithMobileAgent();
-  } catch (error) {
-    console.log('❌ Mobile agent method failed:', error.message);
-  }
-
-  console.log('⚠️ All methods failed, returning empty array');
-  return [];
-}
-
-async function scrapeWithPuppeteer() {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--single-process',
-      '--disable-gpu'
-    ]
-  });
-
-  try {
-    const page = await browser.newPage();
+export class AdvancedNaivasScraper {
+    private readonly BASE_URL = 'https://naivas.online';
     
-    // Set realistic viewport and user agent
-    await page.setViewport({ width: 1366, height: 768 });
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-    
-    // Add some randomness to behavior
-    await delay(Math.random() * 3000 + 1000);
-    
-    console.log('🌐 Loading Naivas homepage...');
-    await page.goto('https://naivas.online', { 
-      waitUntil: 'networkidle2',
-      timeout: 30000 
-    });
-    
-    // Wait and look for deals/promotions
-    await page.waitForTimeout(3000);
-    
-    // Try common selectors for deals
-    const dealSelectors = [
-      '.product-item',
-      '.deal-item', 
-      '.promotion-item',
-      '.offer-item',
-      '[data-product]',
-      '.woocommerce-loop-product__title',
-      '.product'
+    // Updated based on your structure with fallback categories
+    // private readonly DEAL_CATEGORIES = [
+    //     '/food-cupboard-deals',
+    //     '/fresh-deals', 
+    //     '/great-value',
+    //     '/electronics-deals',
+    //     '/beauty-cosmetics-deals',
+    //     '/beverage-deals',
+    //     '/cleaning-deals',
+    //     '/snacks-deals',
+    //     '/baby-kids-deals',
+    //     '/stationery-deals',
+    //     '/liqour-deals'
+    // ];
+
+    private readonly DEAL_CATEGORIES = [
+        '/promos',              // ← Main deals page
+        '/food-cupboard',       // ← Real URL
+        '/fresh-food',          // ← Real URL
+        '/electronics',         // ← Real URL
+        '/beauty-cosmetics',    // ← This one might be correct
+        '/beverage',            // ← Real URL (not 'beverage-deals')
+        '/cleaning',            // ← Real URL
+        '/baby-kids',           // ← Real URL
+        '/naivas-liqour'        // ← Real URL
     ];
-    
-    let deals = [];
-    
-    for (const selector of dealSelectors) {
-      try {
-        const elements = await page.$$(selector);
-        if (elements.length > 0) {
-          console.log(`✅ Found ${elements.length} elements with selector: ${selector}`);
-          
-          deals = await page.evaluate((sel) => {
-            const items = document.querySelectorAll(sel);
-            const dealData = [];
-            
-            items.forEach((item, index) => {
-              if (index >= 20) return; // Limit to 20 deals
-              
-              const nameEl = item.querySelector('h2, h3, .title, .name, .product-title') || item;
-              const priceEl = item.querySelector('.price, .amount, .cost');
-              const originalPriceEl = item.querySelector('.original-price, .was-price, .regular-price');
-              const imageEl = item.querySelector('img');
-              
-              const name = nameEl ? nameEl.textContent.trim() : 'Unknown Product';
-              const currentPriceText = priceEl ? priceEl.textContent.trim() : '';
-              const originalPriceText = originalPriceEl ? originalPriceEl.textContent.trim() : '';
-              const image = imageEl ? imageEl.src : null;
-              
-              // Extract prices (assuming KES format)
-              const currentPrice = parseFloat(currentPriceText.replace(/[^\d.]/g, '')) || 0;
-              const originalPrice = parseFloat(originalPriceText.replace(/[^\d.]/g, '')) || currentPrice;
-              
-              if (name && name !== 'Unknown Product' && currentPrice > 0) {
-                const discount = originalPrice > currentPrice ? 
-                  Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
-                
-                dealData.push({
-                  name: name,
-                  store: 'naivas',
-                  currentPrice: currentPrice,
-                  originalPrice: originalPrice,
-                  discount: discount,
-                  discountType: 'percentage',
-                  category: 'general',
-                  locations: ['nairobi', 'kenya'],
-                  image: image,
-                  isActive: true,
-                  scrapedAt: new Date(),
-                  validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
-                });
-              }
-            });
-            
-            return dealData;
-          }, selector);
-          
-          if (deals.length > 0) break;
-        }
-      } catch (selectorError) {
-        console.log(`⚠️ Selector ${selector} failed:`, selectorError.message);
-      }
+
+    // Fallback regular product categories
+    private readonly PRODUCT_CATEGORIES = [
+        '/food-cupboard',
+        '/fresh-produce', 
+        '/electronics',
+        '/beauty-cosmetics',
+        '/beverages',
+        '/cleaning-household',
+        '/snacks',
+        '/baby-kids',
+        '/stationery',
+        '/liquor'
+    ];
+
+    private getRandomUserAgent(): string {
+        const userAgents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0'
+        ];
+        return userAgents[Math.floor(Math.random() * userAgents.length)]!;
     }
-    
-    console.log(`📦 Puppeteer found ${deals.length} deals`);
-    return deals;
-    
-  } finally {
-    await browser.close();
-  }
+
+    private generateId(name: string, store: string): string {
+        const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const hash = cleanName.split('').reduce((a, b) => {
+            a = ((a << 5) - a) + b.charCodeAt(0);
+            return a & a;
+        }, 0);
+        return `${store}-${Math.abs(hash)}`;
+    }
+
+    private getDefaultExpiry(): Date {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 30);
+        return expiry;
+    }
+
+    private async setupBrowser() {
+        console.log("🚀 Launching Puppeteer browser...");
+        
+        const browser = await puppeteer.launch({
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process',
+                '--disable-gpu',
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-extensions',
+                '--no-default-browser-check',
+                '--disable-plugins-discovery',
+                '--disable-preconnect',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding'
+            ]
+        });
+
+        const page = await browser.newPage();
+        
+        // Enhanced stealth setup matching your style
+        await page.setViewport({ 
+            width: 1366 + Math.floor(Math.random() * 100), 
+            height: 768 + Math.floor(Math.random() * 100) 
+        });
+        await page.setUserAgent(this.getRandomUserAgent());
+        
+        // Block only images to speed up, keep CSS for proper rendering
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            const resourceType = req.resourceType();
+            if (['image', 'media'].includes(resourceType)) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+
+        // Enhanced headers matching your style
+        await page.setExtraHTTPHeaders({
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0'
+        });
+
+        // Remove webdriver property matching your approach
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined,
+            });
+        });
+
+        return { browser, page };
+    }
+
+    private async humanLikeDelay(min = 1000, max = 3000) {
+        const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    // Method to discover current categories by exploring navigation
+    public async discoverCategoryUrls(): Promise<string[]> {
+        const { browser, page } = await this.setupBrowser();
+        
+        try {
+            console.log("🔍 Discovering category URLs from homepage...");
+            
+            const success = await this.navigateWithRetry(page, this.BASE_URL);
+            if (!success) {
+                console.log("❌ Could not access homepage for discovery");
+                return this.DEAL_CATEGORIES; // Return fallback
+            }
+            
+            const categoryUrls = await page.evaluate(() => {
+                const urls: string[] = [];
+                
+                // Look for deal/promo links in navigation and content
+                const links = document.querySelectorAll('a[href*="deals"], a[href*="promos"], a[href*="offer"]');
+                
+                links.forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (href && !urls.includes(href)) {
+                        // Convert relative URLs to paths only
+                        if (href.startsWith('/')) {
+                            urls.push(href);
+                        } else if (href.includes('naivas.online')) {
+                            try {
+                                urls.push(new URL(href).pathname);
+                            } catch (e) {
+                                // Skip invalid URLs
+                            }
+                        }
+                    }
+                });
+
+                // Also look for category navigation
+                const categoryLinks = document.querySelectorAll('nav a, .category a, .menu a');
+                categoryLinks.forEach(link => {
+                    const href = link.getAttribute('href');
+                    const text = link.textContent?.toLowerCase() || '';
+                    
+                    if (href && (text.includes('deal') || text.includes('promo') || text.includes('offer'))) {
+                        if (href.startsWith('/') && !urls.includes(href)) {
+                            urls.push(href);
+                        }
+                    }
+                });
+
+                return urls;
+            });
+
+            console.log(`🎯 Discovered ${categoryUrls.length} category URLs:`, categoryUrls);
+            return categoryUrls.length > 0 ? categoryUrls : this.DEAL_CATEGORIES;
+
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.log("❌ Error discovering categories:", errorMessage);
+            return this.DEAL_CATEGORIES; // Fallback to predefined categories
+        } finally {
+            await browser.close();
+        }
+    }
+
+    private async scrapeProductsFromPage(page: any, category: string): Promise<Deal[]> {
+        console.log(`📦 Extracting products from ${category}...`);
+        
+        await this.humanLikeDelay(2000, 4000);
+        
+        // Wait for product grid to load with multiple selectors
+        try {
+            await Promise.race([
+                page.waitForSelector('.grid', { timeout: 15000 }),
+                page.waitForSelector('[class*="product"]', { timeout: 15000 }),
+                page.waitForSelector('[wire\\:id]', { timeout: 15000 })
+            ]);
+        } catch (error) {
+            console.log(`⚠️ Product grid not found on ${category}, continuing anyway...`);
+        }
+
+        // Simulate human scrolling matching your approach
+        await page.evaluate(() => {
+            window.scrollTo(0, document.body.scrollHeight / 4);
+        });
+        await this.humanLikeDelay(500, 1000);
+        
+        await page.evaluate(() => {
+            window.scrollTo(0, document.body.scrollHeight / 2);
+        });
+        await this.humanLikeDelay(500, 1000);
+
+        // Try to handle infinite scroll/load more
+        await this.handleInfiniteScroll(page);
+
+        const products = await page.evaluate((categoryName: string) => {
+            // Multiple selector strategies - enhanced version
+            const selectors = [
+                'div[wire\\:snapshot*="product-card-component"]', // Livewire components
+                '.border.border-naivas-bg.p-3.rounded-xl', // Your original selector
+                '[wire\\:id*="product-card"]',
+                '.product-card',
+                '[class*="product-item"]',
+                '.grid > div', // Grid children
+                '[data-product]',
+                'article' // Semantic products
+            ];
+            
+            let productCards: NodeListOf<Element> | null = null;
+            let usedSelector = '';
+            
+            for (const selector of selectors) {
+                try {
+                    const cards = document.querySelectorAll(selector);
+                    if (cards.length > 0) {
+                        productCards = cards;
+                        usedSelector = selector;
+                        console.log(`Found ${cards.length} products using selector: ${selector}`);
+                        break;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+
+            if (!productCards || productCards.length === 0) {
+                console.log('No product cards found with any selector');
+                return [];
+            }
+
+            const productsData: any[] = [];
+
+            productCards.forEach((card, index) => {
+                if (index >= 100) return; // Limit per category
+                
+                try {
+                    // Enhanced name extraction with multiple fallbacks
+                    const nameSelectors = [
+                        '.line-clamp-2.text-ellipsis', // Updated selector
+                        '.text-naivas-gray-dark.text-xs.lg\\:text-sm .line-clamp-2',
+                        '.text-naivas-gray-dark a',
+                        'h3',
+                        'h4',
+                        '.product-name',
+                        '[title]',
+                        'a[href*="/product"]',
+                        '.product-title',
+                        '.font-medium',
+                        '.text-sm'
+                    ];
+                    
+                    let productName = '';
+                    for (const selector of nameSelectors) {
+                        try {
+                            const element = card.querySelector(selector);
+                            if (element) {
+                                productName = element.textContent?.trim() || element.getAttribute('title') || '';
+                                if (productName && productName.length > 2) break;
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+
+                    // Enhanced link extraction
+                    const linkSelectors = [
+                        'a[href*="naivas.online/"]',
+                        'a[href^="/product"]',
+                        'a[href^="/"]',
+                        'a'
+                    ];
+                    
+                    let productUrl = '';
+                    for (const selector of linkSelectors) {
+                        try {
+                            const element = card.querySelector(selector);
+                            if (element) {
+                                productUrl = element.getAttribute('href') || '';
+                                if (productUrl) {
+                                    if (!productUrl.startsWith('http')) {
+                                        productUrl = 'https://naivas.online' + productUrl;
+                                    }
+                                    break;
+                                }
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+
+                    // Enhanced price extraction
+                    const priceSelectors = [
+                        '.font-bold.text-naivas-green', // Main price selector
+                        '.text-naivas-green.font-bold',
+                        '.product-price .font-bold',
+                        '.text-naivas-green',
+                        '.price',
+                        '[class*="price"]',
+                        '.font-bold'
+                    ];
+                    
+                    let currentPrice = 0;
+                    for (const selector of priceSelectors) {
+                        try {
+                            const element = card.querySelector(selector);
+                            if (element) {
+                                const priceText = element.textContent?.trim() || '';
+                                const price = parseFloat(priceText.replace(/[^\d.]/g, ''));
+                                if (price > 0) {
+                                    currentPrice = price;
+                                    break;
+                                }
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+
+                    // Enhanced original price extraction
+                    const originalPriceSelectors = [
+                        '.text-red-600.text-xs.line-through',
+                        '.line-through',
+                        '[class*="strike"]',
+                        '[class*="original"]',
+                        '.text-red-600'
+                    ];
+                    
+                    let originalPrice = currentPrice;
+                    for (const selector of originalPriceSelectors) {
+                        try {
+                            const element = card.querySelector(selector);
+                            if (element) {
+                                const priceText = element.textContent?.trim() || '';
+                                const price = parseFloat(priceText.replace(/[^\d.]/g, ''));
+                                if (price > 0 && price > currentPrice) {
+                                    originalPrice = price;
+                                    break;
+                                }
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+
+                    // Enhanced discount extraction
+                    const discountSelectors = [
+                        '.bg-naivas-orange\\/10.text-naivas-orange',
+                        '.pill',
+                        '[class*="off"]',
+                        '[class*="discount"]',
+                        '[class*="save"]',
+                        '[id*="pill"]'
+                    ];
+                    
+                    let discountPercent = 0;
+                    for (const selector of discountSelectors) {
+                        try {
+                            const element = card.querySelector(selector);
+                            if (element) {
+                                const discountText = element.textContent?.trim() || '';
+                                if (discountText) {
+                                    const percentMatch = discountText.match(/(\d+)%/);
+                                    if (percentMatch && percentMatch[1]) {
+                                        discountPercent = parseInt(percentMatch[1]);
+                                        break;
+                                    }
+                                    // Also look for "Save" amounts
+                                    if (discountText.toLowerCase().includes('save')) {
+                                        // Calculate from prices if available
+                                        if (originalPrice > currentPrice) {
+                                            discountPercent = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                    
+                    // Calculate discount if not found in badges
+                    if (discountPercent === 0 && originalPrice > currentPrice && originalPrice > 0) {
+                        discountPercent = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
+                    }
+
+                    // Enhanced image extraction
+                    const imageSelectors = [
+                        'img[src*="cloudfront"]',
+                        'img[src*="naivas"]',
+                        'img[src*="cdn"]',
+                        'img[data-src]',
+                        'img'
+                    ];
+                    
+                    let imageUrl = '';
+                    for (const selector of imageSelectors) {
+                        try {
+                            const element = card.querySelector(selector);
+                            if (element) {
+                                imageUrl = element.getAttribute('src') || element.getAttribute('data-src') || '';
+                                if (imageUrl && imageUrl !== '#') break;
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+
+                    // Extract deal badges
+                    const dealBadges: string[] = [];
+                    const pillElements = card.querySelectorAll('.pill, [id*="pill"], .badge');
+                    pillElements.forEach(pill => {
+                        const badgeText = pill.textContent?.trim();
+                        if (badgeText && badgeText.length > 0) dealBadges.push(badgeText);
+                    });
+
+                    // Only add products with valid data - stricter validation
+                    if (productName && productName.length > 2 && currentPrice > 0) {
+                        productsData.push({
+                            name: productName,
+                            url: productUrl,
+                            currentPrice,
+                            originalPrice,
+                            discount: discountPercent,
+                            image: imageUrl,
+                            category: categoryName,
+                            badges: dealBadges,
+                            hasDiscount: originalPrice > currentPrice,
+                            selector: usedSelector // For debugging
+                        });
+                    }
+                } catch (error) {
+                    console.log(`Error extracting product ${index}:`, error);
+                }
+            });
+
+            return productsData;
+        }, category);
+
+        console.log(`✅ Found ${products.length} products in ${category}`);
+        return this.formatDeals(products);
+    }
+
+    private async handleInfiniteScroll(page: any): Promise<void> {
+        try {
+            // Scroll to trigger lazy loading
+            await page.evaluate(() => {
+                window.scrollTo(0, document.body.scrollHeight);
+            });
+            await this.humanLikeDelay(2000, 3000);
+
+            // Look for "Load More" buttons with multiple selectors
+            const loadMoreSelectors = [
+                'button[wire\\:click*="loadMore"]',
+                'button[wire\\:click*="load"]',
+                '.load-more',
+                '[class*="load-more"]',
+                'button:contains("Load More")',
+                'button:contains("Show More")',
+                '[onclick*="load"]'
+            ];
+
+            for (const selector of loadMoreSelectors) {
+                try {
+                    const button = await page.$(selector);
+                    if (button) {
+                        console.log(`🔄 Found Load More button with selector: ${selector}`);
+                        await button.click();
+                        await this.humanLikeDelay(3000, 5000);
+                        break;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.log("⚠️ Error handling infinite scroll:", errorMessage);
+        }
+    }
+
+    private formatDeals(products: any[]): Deal[] {
+        return products.map(product => ({
+            id: this.generateId(product.name, 'naivas'),
+            name: product.name,
+            store: 'naivas' as any,
+            currentPrice: product.currentPrice,
+            originalPrice: product.originalPrice,
+            discount: product.discount,
+            discountType: 'percentage' as const,
+            validFrom: new Date(),
+            validUntil: this.getDefaultExpiry(),
+            locations: ['nairobi'],
+            category: product.category.replace('/', '').replace('-deals', '') || 'general',
+            image: product.image,
+            sourceUrl: product.url,
+            scrapedAt: new Date(),
+            isActive: true,
+            dealTags: product.badges || []
+        }));
+    }
+
+    private async navigateWithRetry(page: any, url: string, maxRetries = 3): Promise<boolean> {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`🔄 Attempt ${attempt} - Loading ${url}`);
+                
+                const response = await page.goto(url, { 
+                    waitUntil: ['networkidle0', 'domcontentloaded'],
+                    timeout: 45000,
+                    referer: this.BASE_URL
+                });
+
+                if (response?.status() === 200) {
+                    await this.humanLikeDelay(3000, 5000);
+                    return true;
+                } else if (response?.status() === 403) {
+                    console.log(`🚫 403 Forbidden for ${url}`);
+                    return false;
+                }
+                
+                console.log(`❌ Status ${response?.status()} for ${url}`);
+            } catch (error: unknown) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                console.log(`❌ Attempt ${attempt} failed for ${url}: ${errorMessage}`);
+                if (attempt < maxRetries) {
+                    const delay = 5000 * attempt + Math.random() * 2000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+        return false;
+    }
+
+    private async scrapeCategory(page: any, category: string): Promise<Deal[]> {
+        const fullUrl = `${this.BASE_URL}${category}`;
+        
+        const success = await this.navigateWithRetry(page, fullUrl);
+        if (!success) {
+            console.log(`💥 Failed to load ${category} after all retries`);
+            return [];
+        }
+
+        // Check for access blocks matching your approach
+        // const pageContent = await page.content();
+        // if (pageContent.includes('403') || pageContent.includes('Access Denied') || 
+        //     pageContent.includes('blocked') || pageContent.includes('Forbidden')) {
+        //     console.log(`🚫 Access blocked for ${category}`);
+        //     return [];
+        // }
+
+
+        const response = await page.goto(fullUrl, { 
+            waitUntil: ['networkidle0', 'domcontentloaded'],
+            timeout: 45000,
+            referer: this.BASE_URL
+        });
+
+
+        if (!response || response.status() !== 200) {
+            console.log(`💥 HTTP error ${response?.status()} for ${category}`);
+            return [];
+        }
+
+        // Only check for actual blocking pages, not content that mentions blocking
+        const title = await page.title();
+        if (title.toLowerCase().includes('403') || title.toLowerCase().includes('access denied')) {
+            console.log(`🚫 Access blocked for ${category}`);
+            return [];
+        }
+
+        return await this.scrapeProductsFromPage(page, category);
+    }
+
+    private async scrapeHomepage(page: any): Promise<Deal[]> {
+        console.log("🏠 Trying homepage for products...");
+        
+        const success = await this.navigateWithRetry(page, this.BASE_URL);
+        if (!success) {
+            return [];
+        }
+
+        return await this.scrapeProductsFromPage(page, 'homepage');
+    }
+
+    public async scrapeDeals(useDiscoveredCategories: boolean = false): Promise<Deal[]> {
+        const { browser, page } = await this.setupBrowser();
+        const allDeals: Deal[] = [];
+
+        try {
+            // Test homepage accessibility first
+            console.log("🏠 Testing homepage accessibility...");
+            const success = await this.navigateWithRetry(page, this.BASE_URL);
+            if (!success) {
+                throw new Error("Cannot access Naivas homepage - possible IP block or site down");
+            }
+
+            console.log("✅ Homepage accessible, proceeding with category scraping...");
+
+            // Get categories to scrape
+            let categoriesToScrape = this.DEAL_CATEGORIES;
+            if (useDiscoveredCategories) {
+                console.log("🔍 Discovering categories...");
+                try {
+                    const discoveredCategories = await this.discoverCategoryUrls();
+                    if (discoveredCategories.length > 0) {
+                        categoriesToScrape = [...new Set([...discoveredCategories, ...this.DEAL_CATEGORIES])];
+                        console.log(`📋 Using ${categoriesToScrape.length} total categories (discovered + predefined)`);
+                    }
+                } catch (error: unknown) {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    console.log("⚠️ Category discovery failed, using predefined:", errorMessage);
+                }
+            }
+
+            // Try homepage first
+            try {
+                const homepageDeals = await this.scrapeHomepage(page);
+                if (homepageDeals.length > 0) {
+                    allDeals.push(...homepageDeals);
+                    console.log(`📦 Found ${homepageDeals.length} deals on homepage`);
+                }
+            } catch (error: unknown) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                console.log("⚠️ Homepage scraping failed:", errorMessage);
+            }
+
+            // Try deal categories first (limited to avoid blocking)
+            console.log("🔍 Trying deal categories...");
+            let successfulCategories = 0;
+            
+            for (const category of categoriesToScrape.slice(0, 3)) { // Try first 3
+                try {
+                    const categoryDeals = await this.scrapeCategory(page, category);
+                    if (categoryDeals.length > 0) {
+                        allDeals.push(...categoryDeals);
+                        successfulCategories++;
+                        console.log(`✅ Successfully scraped ${categoryDeals.length} deals from ${category}`);
+                    }
+                    
+                    await this.humanLikeDelay(3000, 6000); // Longer delays between categories
+                } catch (error: unknown) {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    console.log(`⚠️ Error scraping ${category}: ${errorMessage}`);
+                    continue;
+                }
+            }
+
+            // If deal categories fail, try regular product categories
+            if (successfulCategories === 0 && allDeals.length === 0) {
+                console.log("🔄 Deal categories blocked/empty, trying regular product pages...");
+                
+                for (const category of this.PRODUCT_CATEGORIES.slice(0, 2)) { // Try first 2
+                    try {
+                        const categoryDeals = await this.scrapeCategory(page, category);
+                        if (categoryDeals.length > 0) {
+                            allDeals.push(...categoryDeals);
+                            console.log(`✅ Successfully scraped ${categoryDeals.length} deals from ${category}`);
+                        }
+                        
+                        await this.humanLikeDelay(4000, 7000); // Even longer delays
+                    } catch (error: unknown) {
+                        const errorMessage = error instanceof Error ? error.message : String(error);
+                        console.log(`⚠️ Error scraping ${category}: ${errorMessage}`);
+                        continue;
+                    }
+                }
+            }
+
+            console.log(`🎉 Successfully scraped ${allDeals.length} total deals from Naivas!`);
+            
+            // Remove duplicates based on product name and price
+            const uniqueDeals = allDeals.filter((deal, index, arr) => 
+                arr.findIndex(d => d.name === deal.name && d.currentPrice === deal.currentPrice) === index
+            );
+
+            console.log(`🧹 Removed ${allDeals.length - uniqueDeals.length} duplicates`);
+            return uniqueDeals;
+
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error("💥 Scraping failed:", errorMessage);
+            throw error;
+        } finally {
+            await browser.close();
+            console.log("🔐 Browser closed");
+        }
+    }
+
+    // Test method for single category matching your style
+    public async testCategory(category: string): Promise<Deal[]> {
+        const { browser, page } = await this.setupBrowser();
+        
+        try {
+            console.log(`🧪 Testing category: ${category}`);
+            const deals = await this.scrapeCategory(page, category);
+            console.log(`📊 Test results: ${deals.length} deals found`);
+            
+            // Log sample deals for debugging
+            if (deals.length > 0) {
+                console.log("🔍 Sample deals:");
+                deals.slice(0, 3).forEach(deal => {
+                    console.log(`- ${deal.name}: KES ${deal.currentPrice} (${deal.discount}% off)`);
+                });
+            }
+            
+            return deals;
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.log("❌ Test failed:", errorMessage);
+            throw error;
+        } finally {
+            await browser.close();
+        }
+    }
+
+    // Get page source for manual debugging
+    public async getPageSource(url: string): Promise<string> {
+        const { browser, page } = await this.setupBrowser();
+        
+        try {
+            const fullUrl = url.startsWith('http') ? url : `${this.BASE_URL}${url}`;
+            const success = await this.navigateWithRetry(page, fullUrl);
+            if (!success) {
+                throw new Error(`Could not access ${fullUrl}`);
+            }
+            return await page.content();
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.log("❌ Error getting page source:", errorMessage);
+            throw error;
+        } finally {
+            await browser.close();
+        }
+    }
+
+    // Method to scrape specific product details matching your style
+    public async scrapeProductDetails(productUrl: string): Promise<any> {
+        const { browser, page } = await this.setupBrowser();
+
+        try {
+            const success = await this.navigateWithRetry(page, productUrl);
+            if (!success) {
+                throw new Error(`Cannot access product page: ${productUrl}`);
+            }
+
+            const productDetails = await page.evaluate(() => {
+                // Extract detailed product information
+                const name = document.querySelector('.text-xl')?.textContent?.trim();
+                const price = document.querySelector('.product-price .font-bold.text-naivas-green')?.textContent?.trim();
+                const stock = document.querySelector('.text-naivas-orange')?.textContent?.trim();
+                const description = document.querySelector('.short-description p')?.textContent?.trim();
+                const sku = document.querySelector('span:contains("SKU") + div span')?.textContent?.trim();
+                const brand = document.querySelector('a[href*="brand="]')?.textContent?.trim();
+                
+                // Extract all images
+                const images: string[] = [];
+                document.querySelectorAll('img[src*="cloudfront"]').forEach(img => {
+                    const src = img.getAttribute('src');
+                    if (src) images.push(src);
+                });
+
+                return {
+                    name,
+                    price,
+                    stock,
+                    description,
+                    sku,
+                    brand,
+                    images
+                };
+            });
+
+            return productDetails;
+
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.log("❌ Error scraping product details:", errorMessage);
+            throw error;
+        } finally {
+            await browser.close();
+        }
+    }
 }
 
-async function scrapeWithRotatingAgents() {
-  const userAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0'
-  ];
-  
-  const randomAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-  
-  const response = await axios.get('https://naivas.online', {
-    headers: {
-      'User-Agent': randomAgent,
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'DNT': '1',
-      'Connection': 'keep-alive',
-      'Upgrade-Insecure-Requests': '1',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Cache-Control': 'max-age=0',
-    },
-    timeout: 30000,
-    maxRedirects: 5
-  });
-  
-  // Basic HTML parsing logic here
-  console.log('📄 Got response, length:', response.data.length);
-  
-  // Return mock data for now - you'd implement HTML parsing here
-  return [];
+// Usage examples matching your original exports:
+export async function scrapeNaivasDeals(): Promise<Deal[]> {
+    const scraper = new AdvancedNaivasScraper();
+    return await scraper.scrapeDeals();
 }
 
-async function scrapeWithMobileAgent() {
-  const response = await axios.get('https://naivas.online', {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-us',
-      'Accept-Encoding': 'gzip, deflate, br',
-    },
-    timeout: 30000
-  });
-  
-  console.log('📱 Mobile response received, length:', response.data.length);
-  return [];
+export async function testNaivasCategory(category: string): Promise<Deal[]> {
+    const scraper = new AdvancedNaivasScraper();
+    return await scraper.testCategory(category);
 }
 
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+export async function discoverNaivasCategories(): Promise<string[]> {
+    const scraper = new AdvancedNaivasScraper();
+    return await scraper.discoverCategoryUrls();
 }
+
+export async function getNaivasPageSource(url: string): Promise<string> {
+    const scraper = new AdvancedNaivasScraper();
+    return await scraper.getPageSource(url);
+}
+
+// Export for use in your existing system
+export { AdvancedNaivasScraper as NaivasScraper };

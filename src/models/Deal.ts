@@ -16,7 +16,7 @@ export interface Deal {
     sourceUrl?: string;
     scrapedAt: Date;
     isActive: boolean;
-    
+    dealTags?: string[];
     // Validation fields (we'll add these later)
     confidenceScore?: number;
     redFlags?: string[];

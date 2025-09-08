@@ -1,7 +1,8 @@
 // src/routes/deals.ts
 import express from 'express';
 import { DealModel } from '../models/Deal.js';
-import { scrapeNaivas } from '../scrappers/naivas.js'
+import { scrapeNaivasDeals } from '../scrappers/naivas.js'; // Fixed: correct export name
+import type { Deal } from '../models/Deal.js'; // Add Deal type import
 
 const router = express.Router();
 
@@ -94,7 +95,7 @@ router.post('/scrape', async (req, res) => {
 
     // Do scraping in background
     try {
-      const deals = await scrapeNaivas();
+      const deals = await scrapeNaivasDeals(); // Fixed: correct function name
       console.log(`📦 Scraped ${deals.length} deals from Naivas`);
 
       if (deals.length === 0) {
@@ -104,7 +105,7 @@ router.post('/scrape', async (req, res) => {
 
       // Save deals to database
       let savedCount = 0;
-      for (const deal of deals) {
+      for (const deal of deals) { // Fixed: add type annotation
         try {
           // Check if similar deal already exists
           const existingDeal = await DealModel.findOne({
@@ -154,7 +155,7 @@ router.get('/test-scrape', async (req, res) => {
     console.log('🧪 Test scraping Naivas...');
     const startTime = Date.now();
     
-    const deals = await scrapeNaivas();
+    const deals = await scrapeNaivasDeals(); // Fixed: correct function name
     const endTime = Date.now();
     const duration = endTime - startTime;
 
@@ -165,7 +166,7 @@ router.get('/test-scrape', async (req, res) => {
         deals_found: deals.length,
         duration_ms: duration,
         duration_seconds: Math.round(duration / 1000),
-        sample_deals: deals.slice(0, 3).map(deal => ({
+        sample_deals: deals.slice(0, 3).map((deal: Deal) => ({ // Fixed: add type annotation
           name: deal.name,
           price: deal.currentPrice,
           original_price: deal.originalPrice,
@@ -206,7 +207,7 @@ router.get('/stats', async (req, res) => {
       success: true,
       stats: {
         totalActiveDeals: totalDeals,
-        dealsByStore: dealsByStore.reduce((acc, item) => {
+        dealsByStore: dealsByStore.reduce((acc: Record<string, number>, item) => { // Fixed: add type annotation
           acc[item._id] = item.count;
           return acc;
         }, {}),
