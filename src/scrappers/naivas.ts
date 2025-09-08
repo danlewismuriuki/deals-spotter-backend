@@ -848,7 +848,8 @@ export class AdvancedNaivasScraper {
             const productsData: any[] = [];
 
             productCards.forEach((card, index) => {
-                if (index >= 100) return; // Limit per category
+                // if (index >= 100) return; // Limit per category
+                if (index >= 1000) return; // Much higher limit for full scraping
                 
                 try {
                     // Enhanced name extraction with multiple fallbacks
@@ -1057,41 +1058,123 @@ export class AdvancedNaivasScraper {
         return this.formatDeals(products);
     }
 
+    // private async handleInfiniteScroll(page: any): Promise<void> {
+    //     try {
+    //         // Scroll to trigger lazy loading
+    //         await page.evaluate(() => {
+    //             window.scrollTo(0, document.body.scrollHeight);
+    //         });
+    //         await this.humanLikeDelay(2000, 3000);
+
+    //         // Look for "Load More" buttons with multiple selectors
+    //         const loadMoreSelectors = [
+    //             'button[wire\\:click*="loadMore"]',
+    //             'button[wire\\:click*="load"]',
+    //             '.load-more',
+    //             '[class*="load-more"]',
+    //             'button:contains("Load More")',
+    //             'button:contains("Show More")',
+    //             '[onclick*="load"]'
+    //         ];
+
+    //         for (const selector of loadMoreSelectors) {
+    //             try {
+    //                 const button = await page.$(selector);
+    //                 if (button) {
+    //                     console.log(`🔄 Found Load More button with selector: ${selector}`);
+    //                     await button.click();
+    //                     await this.humanLikeDelay(3000, 5000);
+    //                     break;
+    //                 }
+    //             } catch (e) {
+    //                 continue;
+    //             }
+    //         }
+    //     } catch (error: unknown) {
+    //         const errorMessage = error instanceof Error ? error.message : String(error);
+    //         console.log("⚠️ Error handling infinite scroll:", errorMessage);
+    //     }
+    // }
+
+
     private async handleInfiniteScroll(page: any): Promise<void> {
         try {
-            // Scroll to trigger lazy loading
-            await page.evaluate(() => {
-                window.scrollTo(0, document.body.scrollHeight);
-            });
-            await this.humanLikeDelay(2000, 3000);
-
-            // Look for "Load More" buttons with multiple selectors
-            const loadMoreSelectors = [
-                'button[wire\\:click*="loadMore"]',
-                'button[wire\\:click*="load"]',
-                '.load-more',
-                '[class*="load-more"]',
-                'button:contains("Load More")',
-                'button:contains("Show More")',
-                '[onclick*="load"]'
-            ];
-
-            for (const selector of loadMoreSelectors) {
-                try {
-                    const button = await page.$(selector);
-                    if (button) {
-                        console.log(`🔄 Found Load More button with selector: ${selector}`);
-                        await button.click();
-                        await this.humanLikeDelay(3000, 5000);
+            console.log("🔄 Starting automatic infinite scroll (no buttons)...");
+            
+            let previousProductCount = 0;
+            let stableCount = 0;
+            const maxScrollAttempts = 15;
+            
+            for (let attempt = 0; attempt < maxScrollAttempts; attempt++) {
+                // Count products before scrolling
+                const currentProducts = await page.evaluate(() => {
+                    return document.querySelectorAll('.border.border-naivas-bg.p-3.rounded-xl').length;
+                });
+                
+                console.log(`📊 Scroll attempt ${attempt + 1}: ${currentProducts} products loaded`);
+                
+                // Scroll to very bottom to trigger loading
+                await page.evaluate(() => {
+                    window.scrollTo(0, document.body.scrollHeight);
+                });
+                
+                // Wait a bit for scroll to register
+                await this.humanLikeDelay(1500, 2500);
+                
+                // Look for loading spinner/indicator
+                const hasLoader = await page.evaluate(() => {
+                    // Check for various loading indicators
+                    const loaders = document.querySelectorAll(
+                        '.loading, .spinner, [class*="loading"], [class*="spinner"], ' +
+                        'svg[class*="animate"], [role="status"], .animate-spin, ' +
+                        '[class*="rotate"], [class*="pulse"]'
+                    );
+                    return loaders.length > 0;
+                });
+                
+                if (hasLoader) {
+                    console.log("⏳ Loading spinner detected - waiting for products...");
+                    await this.humanLikeDelay(4000, 6000);
+                } else {
+                    // No spinner visible, wait shorter time
+                    await this.humanLikeDelay(2000, 3000);
+                }
+                
+                // Count products after waiting
+                const newProductCount = await page.evaluate(() => {
+                    return document.querySelectorAll('.border.border-naivas-bg.p-3.rounded-xl').length;
+                });
+                
+                const gained = newProductCount - currentProducts;
+                console.log(`📈 After scroll: ${newProductCount} products (gained ${gained})`);
+                
+                if (newProductCount <= previousProductCount) {
+                    stableCount++;
+                    console.log(`🔄 No new products loaded (${stableCount}/3 stable attempts)`);
+                    
+                    if (stableCount >= 3) {
+                        console.log("✅ No more products loading - infinite scroll complete");
                         break;
                     }
-                } catch (e) {
-                    continue;
+                } else {
+                    stableCount = 0; // Reset if we got new products
                 }
+                
+                previousProductCount = newProductCount;
+                
+                // Longer delay between scroll attempts
+                await this.humanLikeDelay(2000, 4000);
             }
+            
+            const finalCount = await page.evaluate(() => {
+                return document.querySelectorAll('.border.border-naivas-bg.p-3.rounded-xl').length;
+            });
+            
+            console.log(`🎉 Infinite scroll complete: ${finalCount} total products loaded`);
+            
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.log("⚠️ Error handling infinite scroll:", errorMessage);
+            console.log("⚠️ Error in infinite scroll:", errorMessage);
         }
     }
 
