@@ -3,3 +3,9 @@ dist/
 .env
 *.log
 .DS_Store
+
+# Ignore compiled TS outputs inside src
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.d.ts.map
